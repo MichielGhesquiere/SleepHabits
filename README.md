@@ -13,6 +13,18 @@ The code is organised per the product spec: a Flutter client in `app/`, a FastAP
 
 ### Quick start
 
+**On Windows PowerShell:**
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+**On macOS/Linux:**
+
 ```bash
 cd backend
 python -m venv .venv
@@ -34,8 +46,19 @@ Tokens are in-memory only (`Authorization: Bearer <token>`). Garmin integration 
 
 ### Tests
 
+**On Windows PowerShell:**
+
+```powershell
+cd backend
+.venv\Scripts\Activate.ps1
+pytest
+```
+
+**On macOS/Linux:**
+
 ```bash
 cd backend
+source .venv/bin/activate
 pytest
 ```
 
@@ -51,6 +74,21 @@ Key screens:
 - **HabitsScreen** — manage the healthy/unhealthy checklist.
 
 Configure the backend base URL via a compile-time environment override, or use the default `http://localhost:8000`:
+
+**On Windows PowerShell:**
+
+```powershell
+cd app
+flutter run -d chrome --dart-define=SLEEP_HABITS_API_BASE=http://localhost:8000
+```
+
+**For Android emulator (10.0.2.2 is the host machine from emulator):**
+
+```powershell
+flutter run --dart-define=SLEEP_HABITS_API_BASE=http://10.0.2.2:8000
+```
+
+**On macOS/Linux:**
 
 ```bash
 flutter run --dart-define=SLEEP_HABITS_API_BASE=http://10.0.2.2:8000
