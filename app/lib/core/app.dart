@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/auth/auth_controller.dart';
 import '../features/auth/auth_screen.dart';
+import '../features/auth/auth_state.dart';
 import '../features/home/home_shell.dart';
 
 class SleepHabitsApp extends ConsumerWidget {
@@ -30,16 +31,16 @@ class _AppRoot extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
 
-    switch (authState.status) {
-      case AuthStatus.loading:
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
-      case AuthStatus.authenticated:
-        return const HomeShell();
-      case AuthStatus.unauthenticated:
-      default:
-        return const AuthScreen();
+    if (authState.status == AuthStatus.loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
+
+    if (authState.status == AuthStatus.authenticated) {
+      return const HomeShell();
+    }
+
+    return const AuthScreen();
   }
 }

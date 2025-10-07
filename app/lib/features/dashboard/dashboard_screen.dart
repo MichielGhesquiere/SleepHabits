@@ -198,4 +198,108 @@ class DashboardScreen extends ConsumerWidget {
                               ref.invalidate(sleepSummaryProvider);
                             } catch (err) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                
+                                SnackBar(content: Text('Update failed: $err')),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (error, _) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('Failed to load habits: $error'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _connectGarmin(
+    BuildContext context,
+    WidgetRef ref,
+    AuthState authState,
+  ) async {
+    try {
+      await ref.read(garminRepositoryProvider).connect(authState.token!);
+      ref.invalidate(sleepSummaryProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Garmin connected!')),
+        );
+      }
+    } catch (err) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connect failed: $err')),
+        );
+      }
+    }
+  }
+}
+
+class _EmptySummaryCard extends StatelessWidget {
+  const _EmptySummaryCard({required this.onConnect});
+
+  final VoidCallback onConnect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const Text('No sleep data yet.'),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: onConnect,
+              child: const Text('Connect Garmin'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnectCard extends StatelessWidget {
+  const _ConnectCard({required this.onConnect});
+
+  final VoidCallback onConnect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Theme.of(context).colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text('Connect your Garmin to sync sleep data.'),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: onConnect,
+              child: const Text('Connect'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
