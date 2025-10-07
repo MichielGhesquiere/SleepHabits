@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_state.dart';
@@ -61,29 +62,80 @@ class DashboardScreen extends ConsumerWidget {
                         onConnect: () =>
                             _connectGarmin(context, ref, authState),
                       ),
-                    Card(
+                    // Last Night Card with gradient
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(context).colorScheme.primary,
+                            Theme.of(context).colorScheme.primaryContainer,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
                       child: Padding(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.nightlight_round,
+                                  color: Theme.of(context).colorScheme.secondary,
+                                  size: 28,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Last Night',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
                             Text(
-                              'Last Night',
+                              '${summary.lastNightDurationHours.toStringAsFixed(1)} hours',
                               style: Theme.of(context)
                                   .textTheme
-                                  .titleMedium,
+                                  .headlineMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context).colorScheme.secondary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              '${summary.lastNightDurationHours.toStringAsFixed(1)} h sleep',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Score ${summary.lastNightScore ?? 0} · Bed ${summary.bedtime} · Wake ${summary.wakeTime}',
+                            Row(
+                              children: [
+                                _InfoChip(
+                                  icon: Icons.star,
+                                  label: 'Score ${summary.lastNightScore ?? 0}',
+                                ),
+                                const SizedBox(width: 8),
+                                _InfoChip(
+                                  icon: Icons.bedtime,
+                                  label: summary.bedtime,
+                                ),
+                                const SizedBox(width: 8),
+                                _InfoChip(
+                                  icon: Icons.wb_sunny,
+                                  label: summary.wakeTime,
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -91,17 +143,66 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Card(
-                      child: ListTile(
-                        title: const Text('7-day average'),
-                        subtitle: Text(
-                          '${summary.avgDurationHours7d.toStringAsFixed(1)} h sleep · Score ${summary.avgScore7d.toStringAsFixed(0)}',
+                      elevation: 3,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: Theme.of(context).colorScheme.secondary,
+                              width: 4,
+                            ),
+                          ),
                         ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text('Consistency'),
-                            Text('±${summary.consistencyMinutes} min'),
-                          ],
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          leading: Icon(
+                            Icons.analytics_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 32,
+                          ),
+                          title: const Text(
+                            '7-day average',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '${summary.avgDurationHours7d.toStringAsFixed(1)} h sleep · Score ${summary.avgScore7d.toStringAsFixed(0)}',
+                            ),
+                          ),
+                          trailing: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.secondaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Consistency',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  '±${summary.consistencyMinutes} min',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -144,64 +245,158 @@ class DashboardScreen extends ConsumerWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Tonight\'s Checklist',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.checklist_rounded,
+                          color: Theme.of(context).colorScheme.secondary,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Tonight\'s Checklist',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    ...positive.map(
-                      (habit) => CheckboxListTile(
-                        title: Text(habit.name),
-                        subtitle: habit.description != null
-                            ? Text(habit.description!)
-                            : null,
-                        value: habit.boolValue,
-                        onChanged: (value) async {
-                          if (value == null) return;
-                          try {
-                            await ref.read(habitRepositoryProvider).checkIn(
-                                  token: authState.token!,
-                                  habitId: habit.id,
-                                  value: value,
-                                );
-                            ref.invalidate(habitsProvider);
-                            ref.invalidate(sleepSummaryProvider);
-                          } catch (err) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Update failed: $err')),
-                            );
-                          }
-                        },
+                    const SizedBox(height: 16),
+                    // Healthy habits with yellow border
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.secondary,
+                          width: 3,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        color: Colors.white,
+                      ),
+                      child: Column(
+                        children: positive.map((habit) {
+                          final isLast = habit == positive.last;
+                          return Container(
+                            decoration: BoxDecoration(
+                              border: !isLast
+                                  ? Border(
+                                      bottom: BorderSide(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .secondary
+                                            .withOpacity(0.3),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            child: CheckboxListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              title: Text(
+                                habit.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              subtitle: habit.description != null
+                                  ? Text(habit.description!)
+                                  : null,
+                              value: habit.boolValue,
+                              onChanged: (value) async {
+                                if (value == null) return;
+                                try {
+                                  await ref.read(habitRepositoryProvider).checkIn(
+                                        token: authState.token!,
+                                        habitId: habit.id,
+                                        value: value,
+                                      );
+                                  ref.invalidate(habitsProvider);
+                                  ref.invalidate(sleepSummaryProvider);
+                                } catch (err) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Update failed: $err')),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
                     if (negative.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        'Keep an eye on',
-                        style: Theme.of(context).textTheme.titleMedium,
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.remove_red_eye_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Keep an eye on',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
                       ),
-                      ...negative.map(
-                        (habit) => SwitchListTile(
-                          title: Text(habit.name),
-                          subtitle: habit.description != null
-                              ? Text(habit.description!)
-                              : null,
-                          value: !habit.boolValue,
-                          onChanged: (value) async {
-                            try {
-                              await ref.read(habitRepositoryProvider).checkIn(
-                                    token: authState.token!,
-                                    habitId: habit.id,
-                                    value: !value,
-                                  );
-                              ref.invalidate(habitsProvider);
-                              ref.invalidate(sleepSummaryProvider);
-                            } catch (err) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Update failed: $err')),
-                              );
-                            }
-                          },
+                      const SizedBox(height: 12),
+                      Card(
+                        elevation: 2,
+                        child: Column(
+                          children: negative.map((habit) {
+                            final isLast = habit == negative.last;
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: !isLast
+                                    ? Border(
+                                        bottom: BorderSide(
+                                          color: Colors.grey[200]!,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                              child: SwitchListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                title: Text(
+                                  habit.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: habit.description != null
+                                    ? Text(habit.description!)
+                                    : null,
+                                value: !habit.boolValue,
+                                onChanged: (value) async {
+                                  try {
+                                    await ref.read(habitRepositoryProvider).checkIn(
+                                          token: authState.token!,
+                                          habitId: habit.id,
+                                          value: !value,
+                                        );
+                                    ref.invalidate(habitsProvider);
+                                    ref.invalidate(sleepSummaryProvider);
+                                  } catch (err) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Update failed: $err')),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
                     ],
@@ -233,11 +428,40 @@ class DashboardScreen extends ConsumerWidget {
     AuthState authState,
   ) async {
     try {
-      await ref.read(garminRepositoryProvider).connect(authState.token!);
-      ref.invalidate(sleepSummaryProvider);
-      if (context.mounted) {
+      final repository = ref.read(garminRepositoryProvider);
+      final result = await repository.startConnect(token: authState.token!);
+
+      if (result.summary != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Garmin connected!')),
+          SnackBar(
+            content: Text(result.message ?? 'Sample data loaded.'),
+          ),
+        );
+        return;
+      }
+
+      if (!result.requiresRedirect || result.authorizationUrl == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.message ?? 'Unable to start Garmin connect.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final uri = Uri.parse(result.authorizationUrl!);
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Garmin authorize URL.')),
+        );
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Complete Garmin sign-in, then return to the app.'),
+          ),
         );
       }
     } catch (err) {
@@ -257,16 +481,56 @@ class _EmptySummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            Theme.of(context).colorScheme.secondaryContainer,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.secondary,
+          width: 2,
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Text('No sleep data yet.'),
+            Icon(
+              Icons.nights_stay_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No sleep data yet',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
             const SizedBox(height: 8),
-            ElevatedButton(
+            const Text(
+              'Connect your Garmin device to start tracking your sleep and habits.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
               onPressed: onConnect,
-              child: const Text('Connect Garmin'),
+              icon: const Icon(Icons.link, size: 20),
+              label: const Text('Connect Garmin'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+              ),
             ),
           ],
         ),
@@ -282,19 +546,42 @@ class _ConnectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: Theme.of(context).colorScheme.secondaryContainer,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.secondaryContainer,
+            Theme.of(context).colorScheme.secondary.withOpacity(0.3),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.secondary,
+          width: 2,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
+            Icon(
+              Icons.link,
+              color: Theme.of(context).colorScheme.primary,
+              size: 32,
+            ),
+            const SizedBox(width: 12),
             const Expanded(
-              child: Text('Connect your Garmin to sync sleep data.'),
+              child: Text(
+                'Connect your Garmin to sync sleep data.',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
             ),
             const SizedBox(width: 8),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: onConnect,
-              child: const Text('Connect'),
+              icon: const Icon(Icons.add_link, size: 18),
+              label: const Text('Connect'),
             ),
           ],
         ),
@@ -303,3 +590,46 @@ class _ConnectCard extends StatelessWidget {
   }
 }
 
+// Info chip widget for sleep stats
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: Theme.of(context).colorScheme.secondary,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
