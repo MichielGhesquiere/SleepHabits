@@ -37,8 +37,9 @@ The API exposes:
 
 - `POST /auth/login` — accepts `{ "email": "user@example.com" }` and returns an access token.
 - `GET /me/summary` — returns the current user’s sleep snapshot and habit compliance stats.
-- `POST /me/garmin/connect` — simulates a Garmin OAuth connect and loads sample sleep data.
-- `POST /me/garmin/pull` — re-syncs the sample sleep dataset.
+- `POST /garmin/oauth/start` — begins the Garmin OAuth flow; returns an authorization URL when live credentials are configured (otherwise loads the bundled sample data).
+- `POST /garmin/oauth/callback` — exchanges the OAuth code for Garmin tokens, stores them, and pulls the latest sleep metrics.
+- `POST /garmin/pull` — refreshes recent sleep data using the stored Garmin tokens.
 - `GET /me/habits` — returns the configured habits plus today’s check-ins.
 - `POST /me/habits/checkin` — records a bedtime habit entry for today (or an optional `local_date`).
 
@@ -62,6 +63,16 @@ source .venv/bin/activate
 pytest
 ```
 
+### Garmin configuration
+
+The backend now uses the community [`python-garminconnect`](./python-garminconnect) library. Users enter the same credentials they use for the consumer Garmin Connect app; we exchange these for session tokens via `garth` and cache the tokens under `backend/app/data/garmin_tokens/<user_id>/`. No partner OAuth is required.
+
+- Set `GARMIN_SAMPLE_MODE=0` in the backend environment to **disable** the demo fallback. When left unset (default), failed logins will fall back to the bundled sample data so tests and local builds still work without credentials.
+- Ensure the process has write access to `backend/app/data/garmin_tokens` so token files persist between syncs.
+- If you need to force a fresh login, remove the token directory for that user (or call account deletion once implemented).
+
+⚠️ **Security note:** this flow handles real Garmin usernames/passwords. In production backends you should encrypt token directories at rest, place credentials behind a secrets manager, and tighten audit logging before enabling external access.
+
 ## Mobile app (Flutter)
 
 The Flutter source lives under `app/` and uses Riverpod for state management.
@@ -69,8 +80,8 @@ The Flutter source lives under `app/` and uses Riverpod for state management.
 Key screens:
 
 - **AuthScreen** — simple email capture and sign-in.
-- **Dashboard** — connect Garmin, view last night + 7-day averages, and check off tonight’s habits.
-- **SleepScreen** — pull latest sample sleep data and view stage breakdowns.
+- **Dashboard** — kick off Garmin connect, view last night + 7-day averages, and check off tonight’s habits.
+- **SleepScreen** — pull the latest Garmin sleep data (or sample fallback) and view stage breakdowns.
 - **HabitsScreen** — manage the healthy/unhealthy checklist.
 
 Configure the backend base URL via a compile-time environment override, or use the default `http://localhost:8000`:
@@ -112,7 +123,7 @@ sleep-habits/
 ## Defaults & assumptions
 
 - Authentication uses in-memory tokens; a real build would swap in JWT/refresh tokens and persistent storage.
-- Sample Garmin data powers the “connect” and “pull” flows — replace with live Health API / webhooks later.
+- Garmin OAuth/webhooks are implemented; when credentials are absent the app falls back to the bundled sample dataset for local development.
 - Daily aggregates and analytics jobs are placeholders; add proper ETL + model training once real data flows.
 - Notifications, reminders, and HealthKit/Health Connect bridges are not yet implemented.
 

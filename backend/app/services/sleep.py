@@ -1,41 +1,72 @@
 from __future__ import annotations
 
-import json
 import statistics
 from datetime import date
-from pathlib import Path
-from typing import List
 
 from app.services.habits import HabitService
+from app.services.garmin import GarminConnectService
 from app.services.storage import SleepSession, User, store
-
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 class SleepService:
-    def __init__(self, habit_service: HabitService | None = None) -> None:
+    def __init__(
+        self,
+        habit_service: HabitService | None = None,
+        garmin_service: GarminConnectService | None = None,
+    ) -> None:
         self.store = store
         self.habits = habit_service or HabitService()
+        self.garmin = garmin_service or GarminConnectService()
 
-    def connect_garmin(self, user: User) -> dict:
-        if not user.garmin_connected:
-            user.garmin_connected = True
-            self.store.upsert_user(user)
-        sessions = self._load_sample_sessions(user.id)
-        self.store.overwrite_sleep_sessions(user.id, sessions)
-        summary = self.get_summary(user)
-        return {
-            "connected": True,
-            "message": "Garmin connected (sample data loaded).",
-            "summary": summary,
-        }
+    async def connect_garmin(
+        self,
+        user: User,
+        *,
+        email: str | None = None,
+        password: str | None = None,
+        mfa_code: str | None = None,
+        mfa_token: str | None = None,
+    ) -> dict:
+        result = self.garmin.connect(
+            user=user,
+            email=email,
+            password=password,
+            mfa_code=mfa_code,
+            mfa_token=mfa_token,
+        )
 
-    def pull_latest(self, user: User) -> dict:
-        # For the prototype we simply reload the sample dataset.
-        sessions = self._load_sample_sessions(user.id)
-        self.store.overwrite_sleep_sessions(user.id, sessions)
+        if result.get("connected") and not result.get("mfa_required"):
+            result["summary"] = self.get_summary(user)
+        else:
+            result.pop("summary", None)
+        return result
+
+    async def pull_latest(self, user: User, days: int = 30) -> dict:
+        self.garmin.sync_recent_sleep(user=user, days=days)
         summary = self.get_summary(user)
         return summary
+
+    def add_manual_entry(
+        self,
+        user: User,
+        local_date: date,
+        sleep_score: int,
+        bedtime: str,
+        wake_time: str,
+        duration_minutes: int,
+    ) -> dict:
+        """Manually add or update a sleep entry."""
+        session = SleepSession(
+            user_id=user.id,
+            date=local_date,
+            duration_minutes=duration_minutes,
+            sleep_score=sleep_score,
+            bedtime=bedtime,
+            wake_time=wake_time,
+            stage_minutes={},  # No stage data for manual entries
+        )
+        self.store.upsert_sleep_session(user.id, session)
+        return self.get_summary(user)
 
     def get_summary(self, user: User) -> dict:
         sessions = self.store.list_sleep_sessions(user.id)
@@ -99,25 +130,94 @@ class SleepService:
             "negative_total": len(negative),
         }
 
-    def _load_sample_sessions(self, user_id: str) -> List[SleepSession]:
-        sample_file = DATA_DIR / "sample_garmin_sleep.json"
-        payload = json.loads(sample_file.read_text())
-        sessions = []
-        for item in payload.get("sleep_sessions", []):
-            sessions.append(
-                SleepSession(
-                    user_id=user_id,
-                    date=date.fromisoformat(item["date"]),
-                    duration_minutes=int(item["duration_minutes"]),
-                    sleep_score=item.get("sleep_score"),
-                    bedtime=item.get("bedtime", "22:30"),
-                    wake_time=item.get("wake_time", "06:30"),
-                    stage_minutes={
-                        key: int(value) for key, value in item.get("stage_minutes", {}).items()
-                    },
-                )
-            )
-        return sessions
+    def get_analytics(self, user: User) -> dict:
+        """Calculate correlations between habits and sleep quality."""
+        sessions = self.store.list_sleep_sessions(user.id)
+        print(f"[DEBUG] Analytics for user {user.id}: Found {len(sessions)} sleep sessions")
+        
+        if len(sessions) < 7:
+            return {"correlations": [], "message": "Need at least 7 nights of data"}
+
+        # Get all habit checkins (without date filter to get all history)
+        all_checkins = self.store.list_checkins(user.id)
+        print(f"[DEBUG] Found {len(all_checkins)} habit checkins")
+        
+        # Group checkins by date and habit
+        checkins_by_date = {}
+        for checkin in all_checkins:
+            if checkin.local_date not in checkins_by_date:
+                checkins_by_date[checkin.local_date] = {}
+            checkins_by_date[checkin.local_date][checkin.habit_id] = checkin.value
+
+        # Get all habits to lookup names
+        all_habits = self.store.list_habits(user.id)
+        habits_by_id = {h.id: h for h in all_habits}
+
+        # Get unique habit IDs that have been checked in
+        habit_ids = set()
+        for date_checkins in checkins_by_date.values():
+            habit_ids.update(date_checkins.keys())
+        
+        print(f"[DEBUG] Unique habit IDs found: {habit_ids}")
+        print(f"[DEBUG] Available habits in system: {list(habits_by_id.keys())}")
+
+        # Calculate average sleep score with/without each habit
+        correlations = []
+        for habit_id in habit_ids:
+            habit = habits_by_id.get(habit_id)
+            if not habit:
+                print(f"[DEBUG] Skipping unknown habit ID: {habit_id}")
+                continue
+
+            scores_with = []
+            scores_without = []
+
+            for session in sessions:
+                if session.sleep_score is None:
+                    continue
+                
+                date_checkins = checkins_by_date.get(session.date, {})
+                habit_value = date_checkins.get(habit_id)
+
+                # Handle both boolean and numeric values
+                # If habit was not logged for this date, assume it wasn't done (False/0)
+                if habit_value is None:
+                    # Not logged = didn't do it
+                    scores_without.append(session.sleep_score)
+                elif isinstance(habit_value, bool):
+                    if habit_value:
+                        scores_with.append(session.sleep_score)
+                    else:
+                        scores_without.append(session.sleep_score)
+                else:  # numeric value (like alcohol count)
+                    if habit_value > 0:
+                        scores_with.append(session.sleep_score)
+                    else:
+                        scores_without.append(session.sleep_score)
+            
+            print(f"[DEBUG] Habit {habit.name}: {len(scores_with)} with, {len(scores_without)} without")
+
+            # Need at least 3 data points in each group
+            if len(scores_with) >= 3 and len(scores_without) >= 3:
+                avg_with = statistics.mean(scores_with)
+                avg_without = statistics.mean(scores_without)
+                difference = avg_with - avg_without
+
+                correlations.append({
+                    "habit_id": habit_id,
+                    "habit_name": habit.name,
+                    "habit_type": habit.type,
+                    "avg_score_with_habit": round(avg_with, 1),
+                    "avg_score_without_habit": round(avg_without, 1),
+                    "difference": round(difference, 1),
+                    "sample_size_with": len(scores_with),
+                    "sample_size_without": len(scores_without),
+                })
+
+        # Sort by absolute difference (biggest impact first)
+        correlations.sort(key=lambda x: abs(x["difference"]), reverse=True)
+
+        return {"correlations": correlations}
 
     @staticmethod
     def _clock_to_minutes(value: str) -> int:

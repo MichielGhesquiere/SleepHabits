@@ -1,16 +1,104 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_state.dart';
-import '../connect/garmin_repository.dart';
 import '../habits/habit_model.dart';
 import '../habits/habit_repository.dart';
+import '../sleep/manual_entry_screen.dart';
 import '../sleep/sleep_repository.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
+
+  Future<void> _importCsvData(BuildContext context, WidgetRef ref) async {
+    try {
+      // Pick CSV file
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        return; // User cancelled
+      }
+
+      final file = result.files.first;
+      if (file.bytes == null) {
+        throw Exception('Could not read file data');
+      }
+
+      if (!context.mounted) return;
+
+      // Show loading dialog
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Importing data...'),
+            ],
+          ),
+        ),
+      );
+
+      // Import CSV
+      final authState = ref.read(authControllerProvider);
+      final repository = ref.read(sleepRepositoryProvider);
+      
+      final response = await repository.importCsv(
+        token: authState.token ?? '',
+        fileBytes: file.bytes!,
+        fileName: file.name,
+      );
+
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // Close loading dialog
+
+      // Refresh data
+      ref.invalidate(sleepSummaryProvider);
+      ref.invalidate(habitsProvider);
+
+      // Show success message
+      final sleepCount = response['sleep_imported'] ?? 0;
+      final habitCount = response['habits_imported'] ?? 0;
+      
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Import Successful!'),
+          content: Text(
+            'Imported $sleepCount sleep sessions and $habitCount habit checkins.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      
+      // Close loading dialog if open
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      
+      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Import failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,6 +120,11 @@ class DashboardScreen extends ConsumerWidget {
         title: const Text('Today'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.upload_file),
+            tooltip: 'Import CSV Data',
+            onPressed: () => _importCsvData(context, ref),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () =>
                 ref.read(authControllerProvider.notifier).signOut(),
@@ -49,19 +142,60 @@ class DashboardScreen extends ConsumerWidget {
             summaryAsync.when(
               data: (summary) {
                 if (summary == null) {
-                  return _EmptySummaryCard(
-                    onConnect: () => _connectGarmin(context, ref, authState),
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          Theme.of(context).colorScheme.secondaryContainer,
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.secondary,
+                        width: 2,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.nights_stay_outlined,
+                            size: 64,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No sleep data yet',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Tap the button below to add your first sleep entry.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 16),
+                          Icon(
+                            Icons.arrow_downward,
+                            color: Theme.of(context).colorScheme.secondary,
+                            size: 32,
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 }
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!summary.garminConnected)
-                      _ConnectCard(
-                        onConnect: () =>
-                            _connectGarmin(context, ref, authState),
-                      ),
                     // Last Night Card with gradient
                     Container(
                       decoration: BoxDecoration(
@@ -419,172 +553,16 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Future<void> _connectGarmin(
-    BuildContext context,
-    WidgetRef ref,
-    AuthState authState,
-  ) async {
-    try {
-      final repository = ref.read(garminRepositoryProvider);
-      final result = await repository.startConnect(token: authState.token!);
-
-      if (result.summary != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.message ?? 'Sample data loaded.'),
-          ),
-        );
-        return;
-      }
-
-      if (!result.requiresRedirect || result.authorizationUrl == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result.message ?? 'Unable to start Garmin connect.'),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => const ManualEntryScreen(),
             ),
           );
-        }
-        return;
-      }
-
-      final uri = Uri.parse(result.authorizationUrl!);
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!launched && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open Garmin authorize URL.')),
-        );
-      } else if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Complete Garmin sign-in, then return to the app.'),
-          ),
-        );
-      }
-    } catch (err) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connect failed: $err')),
-        );
-      }
-    }
-  }
-}
-
-class _EmptySummaryCard extends StatelessWidget {
-  const _EmptySummaryCard({required this.onConnect});
-
-  final VoidCallback onConnect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            Theme.of(context).colorScheme.secondaryContainer,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.secondary,
-          width: 2,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Icon(
-              Icons.nights_stay_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No sleep data yet',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Connect your Garmin device to start tracking your sleep and habits.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: onConnect,
-              icon: const Icon(Icons.link, size: 20),
-              label: const Text('Connect Garmin'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ConnectCard extends StatelessWidget {
-  const _ConnectCard({required this.onConnect});
-
-  final VoidCallback onConnect;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.secondaryContainer,
-            Theme.of(context).colorScheme.secondary.withOpacity(0.3),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.secondary,
-          width: 2,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Icon(
-              Icons.link,
-              color: Theme.of(context).colorScheme.primary,
-              size: 32,
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Connect your Garmin to sync sleep data.',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              onPressed: onConnect,
-              icon: const Icon(Icons.add_link, size: 18),
-              label: const Text('Connect'),
-            ),
-          ],
-        ),
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Add Sleep Entry'),
       ),
     );
   }

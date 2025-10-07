@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/api_client.dart';
@@ -26,11 +27,77 @@ class SleepRepository {
 
   Future<SleepSummary> refreshFromGarmin(String token) async {
     final response = await _client.post<Map<String, dynamic>>(
-      '/me/garmin/pull',
+      '/garmin/pull',
+      token: token,
+    );
+    final data = response.data ?? <String, dynamic>{};
+    final summaryJson =
+        data['summary'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    return SleepSummary.fromJson(summaryJson);
+  }
+
+  Future<SleepSummary> addManualEntry({
+    required String token,
+    required DateTime date,
+    required int sleepScore,
+    required String bedtime,
+    required String wakeTime,
+    required int durationMinutes,
+  }) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/me/sleep/manual',
+      token: token,
+      data: {
+        'local_date': date.toIso8601String().split('T')[0],
+        'sleep_score': sleepScore,
+        'bedtime': bedtime,
+        'wake_time': wakeTime,
+        'duration_minutes': durationMinutes,
+      },
+    );
+    final data = response.data ?? <String, dynamic>{};
+    return SleepSummary.fromJson(data);
+  }
+
+  Future<SleepSummary> fetchSummaryForDate({
+    required String token,
+    required DateTime date,
+  }) async {
+    final dateStr = date.toIso8601String().split('T')[0];
+    final response = await _client.get<Map<String, dynamic>>(
+      '/me/sleep/date/$dateStr',
       token: token,
     );
     final data = response.data ?? <String, dynamic>{};
     return SleepSummary.fromJson(data);
+  }
+
+  Future<Map<String, dynamic>> fetchAnalytics(String token) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      '/me/analytics',
+      token: token,
+    );
+    return response.data ?? <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> importCsv({
+    required String token,
+    required List<int> fileBytes,
+    required String fileName,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        fileBytes,
+        filename: fileName,
+      ),
+    });
+
+    final response = await _client.postMultipart<Map<String, dynamic>>(
+      '/me/import/csv',
+      formData: formData,
+      token: token,
+    );
+    return response.data ?? <String, dynamic>{};
   }
 }
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 
 @dataclass
@@ -12,6 +12,26 @@ class User:
     timezone: str = "UTC"
     garmin_connected: bool = False
     created_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class GarminAccount:
+    user_id: str
+    email: str
+    token_path: str
+    display_name: Optional[str] = None
+    last_synced_at: Optional[datetime] = None
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class GarminMFASession:
+    token: str
+    user_id: str
+    email: str
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    client_state: Dict[str, Any] = field(default_factory=dict)
+    garmin_object: Any = field(repr=False, default=None)
 
 
 @dataclass
@@ -29,7 +49,7 @@ class HabitCheckin:
     user_id: str
     habit_id: str
     local_date: date
-    value: bool
+    value: Union[bool, int]  # Support both boolean and integer values
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
 
@@ -51,6 +71,8 @@ class InMemoryStore:
         self.habit_checkins: Dict[tuple[str, date, str], HabitCheckin] = {}
         self.sleep_sessions: Dict[str, List[SleepSession]] = {}
         self.tokens: Dict[str, str] = {}
+        self.garmin_accounts: Dict[str, GarminAccount] = {}
+        self.garmin_mfa_sessions: Dict[str, GarminMFASession] = {}
 
     # User operations --------------------------------------------------
     def upsert_user(self, user: User) -> User:
@@ -98,6 +120,15 @@ class InMemoryStore:
         existing.extend(sessions)
         existing.sort(key=lambda s: s.date, reverse=True)
 
+    def upsert_sleep_session(self, user_id: str, session: SleepSession) -> None:
+        """Add or update a sleep session for a specific date."""
+        existing = self.sleep_sessions.setdefault(user_id, [])
+        # Remove any existing session for this date
+        existing[:] = [s for s in existing if s.date != session.date]
+        # Add the new session
+        existing.append(session)
+        existing.sort(key=lambda s: s.date, reverse=True)
+
     def overwrite_sleep_sessions(self, user_id: str, sessions: List[SleepSession]) -> None:
         self.sleep_sessions[user_id] = sorted(sessions, key=lambda s: s.date, reverse=True)
 
@@ -110,6 +141,22 @@ class InMemoryStore:
 
     def resolve_token(self, token: str) -> Optional[str]:
         return self.tokens.get(token)
+
+    # Garmin credential operations ------------------------------------
+    def set_garmin_account(self, account: GarminAccount) -> None:
+        self.garmin_accounts[account.user_id] = account
+
+    def get_garmin_account(self, user_id: str) -> Optional[GarminAccount]:
+        return self.garmin_accounts.get(user_id)
+
+    def delete_garmin_account(self, user_id: str) -> None:
+        self.garmin_accounts.pop(user_id, None)
+
+    def save_mfa_session(self, session: GarminMFASession) -> None:
+        self.garmin_mfa_sessions[session.token] = session
+
+    def pop_mfa_session(self, token: str) -> Optional[GarminMFASession]:
+        return self.garmin_mfa_sessions.pop(token, None)
 
 
 store = InMemoryStore()

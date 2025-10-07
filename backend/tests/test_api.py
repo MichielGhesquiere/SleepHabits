@@ -22,10 +22,11 @@ def test_login_and_summary_flow() -> None:
     assert data["last_night"] is None
 
     connect = client.post(
-        "/me/garmin/connect",
+        "/garmin/connect",
+        json={"email": "demo@example.com", "password": "invalid"},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert connect.status_code == 200
+    assert connect.status_code == 200, connect.text
     connect_payload = connect.json()
     assert connect_payload["connected"] is True
     assert connect_payload["summary"]["last_night"] is not None
@@ -46,6 +47,15 @@ def test_login_and_summary_flow() -> None:
     assert checkin.status_code == 200
     checkin_payload = checkin.json()
     assert checkin_payload["value"] is True
+
+    pull = client.post(
+        "/garmin/pull",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert pull.status_code == 200
+    pull_payload = pull.json()
+    assert "refreshed_at" in pull_payload
+    assert pull_payload["summary"]["last_night"] is not None
 
     refreshed = client.get(
         "/me/summary",

@@ -55,6 +55,18 @@ class ApiClient {
     );
   }
 
+  Future<Response<T>> postMultipart<T>(
+    String path, {
+    required FormData formData,
+    String? token,
+  }) {
+    return _dio.post<T>(
+      path,
+      data: formData,
+      options: _options(token),
+    );
+  }
+
   Options _options(String? token) {
     final headers = <String, dynamic>{};
     if (token != null && token.isNotEmpty) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analytics/analytics_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../habits/habits_screen.dart';
 import '../sleep/sleep_screen.dart';
@@ -23,6 +24,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         children: const [
           DashboardScreen(),
           SleepScreen(),
+          AnalyticsScreen(),
           HabitsScreen(),
         ],
       ),
@@ -38,6 +40,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             icon: Icon(Icons.nightlight_outlined),
             selectedIcon: Icon(Icons.nightlight_round),
             label: 'Sleep',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics),
+            label: 'Analytics',
           ),
           NavigationDestination(
             icon: Icon(Icons.checklist_outlined),

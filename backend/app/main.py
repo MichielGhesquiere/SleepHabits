@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import auth, me
+from .routers import auth, garmin, me
 
 
 def create_app() -> FastAPI:
@@ -24,6 +24,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth.router, prefix="/auth", tags=["auth"])
     app.include_router(me.router, prefix="/me", tags=["me"])
+    app.include_router(garmin.router)
 
     @app.get("/health", tags=["health"])  # pragma: no cover - trivial
     async def healthcheck() -> dict[str, str]:

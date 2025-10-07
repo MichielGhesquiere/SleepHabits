@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Dict, Optional
 
 from pydantic import BaseModel
@@ -45,3 +46,11 @@ class SleepSummaryResponse(BaseModel):
     last_night: Optional[SleepLastNight]
     trailing_7d: Optional[SleepTrailing]
     habits: HabitSummary
+
+
+class ManualSleepEntryRequest(BaseModel):
+    local_date: date
+    sleep_score: int
+    bedtime: str
+    wake_time: str
+    duration_minutes: int

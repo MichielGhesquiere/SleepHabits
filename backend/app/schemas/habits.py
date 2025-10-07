@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from typing import Optional, Union
 
 from pydantic import BaseModel
 
@@ -13,15 +13,15 @@ class HabitResponse(BaseModel):
     description: Optional[str]
     default_on: bool = True
     icon: Optional[str]
-    value: bool = False
+    value: Union[bool, int] = False  # Support both boolean and integer
     value_type: str = "boolean"
     last_check_in: Optional[str]
 
 
 class HabitCheckinRequest(BaseModel):
     habit_id: str
-    value: bool
-    local_date: Optional[date]
+    value: Union[bool, int]  # Support both boolean and integer
+    local_date: Optional[date] = None
 
 
 class HabitCheckinResponse(HabitResponse):

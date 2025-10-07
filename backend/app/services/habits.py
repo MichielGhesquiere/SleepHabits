@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Union
 
 from app.services.storage import Habit, HabitCheckin, User, store
 
@@ -30,10 +31,10 @@ DEFAULT_HABITS = [
         description="Aim for a consistent bedtime window.",
     ),
     Habit(
-        id="habit-no-alcohol",
-        name="No alcohol tonight",
-        type="healthy",
-        description="Skip alcohol to improve recovery.",
+        id="habit-alcohol",
+        name="Consumed alcohol",
+        type="unhealthy",
+        description="Track alcohol consumption (number of drinks).",
     ),
     Habit(
         id="habit-no-caffeine",
@@ -109,7 +110,7 @@ class HabitService:
         self,
         user: User,
         habit_id: str,
-        value: bool,
+        value: Union[bool, int],
         target_date: date | None = None,
     ) -> dict:
         target_date = target_date or date.today()

@@ -1,3 +1,3 @@
-from . import auth, me
+from . import auth, garmin, me
 
-__all__ = ["auth", "me"]
+__all__ = ["auth", "garmin", "me"]
