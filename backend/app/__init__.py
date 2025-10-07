@@ -1,0 +1,1 @@
+"""SleepHabits FastAPI application."""

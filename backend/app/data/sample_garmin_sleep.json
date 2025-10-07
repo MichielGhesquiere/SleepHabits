@@ -1,0 +1,95 @@
+{
+  "sleep_sessions": [
+    {
+      "date": "2024-03-18",
+      "duration_minutes": 425,
+      "sleep_score": 78,
+      "bedtime": "22:42",
+      "wake_time": "06:27",
+      "stage_minutes": {
+        "deep": 95,
+        "rem": 105,
+        "light": 190,
+        "awake": 35
+      }
+    },
+    {
+      "date": "2024-03-17",
+      "duration_minutes": 412,
+      "sleep_score": 74,
+      "bedtime": "22:51",
+      "wake_time": "06:15",
+      "stage_minutes": {
+        "deep": 88,
+        "rem": 98,
+        "light": 186,
+        "awake": 40
+      }
+    },
+    {
+      "date": "2024-03-16",
+      "duration_minutes": 401,
+      "sleep_score": 72,
+      "bedtime": "23:05",
+      "wake_time": "06:10",
+      "stage_minutes": {
+        "deep": 80,
+        "rem": 102,
+        "light": 175,
+        "awake": 44
+      }
+    },
+    {
+      "date": "2024-03-15",
+      "duration_minutes": 435,
+      "sleep_score": 82,
+      "bedtime": "22:35",
+      "wake_time": "06:30",
+      "stage_minutes": {
+        "deep": 100,
+        "rem": 110,
+        "light": 200,
+        "awake": 25
+      }
+    },
+    {
+      "date": "2024-03-14",
+      "duration_minutes": 390,
+      "sleep_score": 69,
+      "bedtime": "23:20",
+      "wake_time": "06:00",
+      "stage_minutes": {
+        "deep": 75,
+        "rem": 95,
+        "light": 170,
+        "awake": 50
+      }
+    },
+    {
+      "date": "2024-03-13",
+      "duration_minutes": 415,
+      "sleep_score": 80,
+      "bedtime": "22:48",
+      "wake_time": "06:25",
+      "stage_minutes": {
+        "deep": 92,
+        "rem": 108,
+        "light": 190,
+        "awake": 25
+      }
+    },
+    {
+      "date": "2024-03-12",
+      "duration_minutes": 398,
+      "sleep_score": 71,
+      "bedtime": "23:10",
+      "wake_time": "06:05",
+      "stage_minutes": {
+        "deep": 78,
+        "rem": 100,
+        "light": 176,
+        "awake": 44
+      }
+    }
+  ]
+}

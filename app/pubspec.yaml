@@ -1,0 +1,25 @@
+name: sleep_habits
+version: 0.0.1+1
+description: Proof-of-concept SleepHabits app with Garmin integration stub.
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.1.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.4.0
+  dio: ^5.4.0
+  hooks_riverpod: ^2.4.0
+  uuid: ^4.2.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/sample_data/
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^5.0.0
