@@ -60,6 +60,16 @@ async def get_analytics(
     return sleep_service.get_analytics(user)
 
 
+@router.get("/sleep/timeline")
+async def get_sleep_timeline(
+    range: str = "week",  # week, month, year
+    user: User = Depends(get_current_user),
+    sleep_service: SleepService = Depends(get_sleep_service),
+) -> dict:
+    """Get sleep timeline data for visualization."""
+    return sleep_service.get_timeline(user, range)
+
+
 @router.post("/sleep/manual", response_model=SleepSummaryResponse)
 async def add_manual_sleep_entry(
     payload: ManualSleepEntryRequest,

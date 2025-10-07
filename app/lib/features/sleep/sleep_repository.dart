@@ -99,6 +99,14 @@ class SleepRepository {
     );
     return response.data ?? <String, dynamic>{};
   }
+
+  Future<Map<String, dynamic>> fetchTimeline(String token, String range) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      '/me/sleep/timeline?range=$range',
+      token: token,
+    );
+    return response.data ?? <String, dynamic>{};
+  }
 }
 
 final sleepSummaryProvider = FutureProvider<SleepSummary?>((ref) async {

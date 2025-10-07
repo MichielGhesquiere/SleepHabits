@@ -167,6 +167,26 @@ class GarminConnectService:
             if not data:
                 continue
             dto = data.daily_sleep_dto
+            
+            # Debug logging for Garmin data
+            print(f"\n[GARMIN DEBUG] Sleep data for {target_date}")
+            print(f"  Calendar Date: {dto.calendar_date}")
+            print(f"  Sleep Start: {dto.sleep_start}")
+            print(f"  Sleep End: {dto.sleep_end}")
+            print(f"  Sleep Time (seconds): {dto.sleep_time_seconds}")
+            print(f"  Deep Sleep (seconds): {dto.deep_sleep_seconds}")
+            print(f"  Light Sleep (seconds): {dto.light_sleep_seconds}")
+            print(f"  REM Sleep (seconds): {dto.rem_sleep_seconds}")
+            print(f"  Awake (seconds): {dto.awake_sleep_seconds}")
+            if dto.sleep_scores:
+                print(f"  Overall Score: {dto.sleep_scores.overall.value}")
+                print(f"  Sleep Quality: {getattr(dto.sleep_scores, 'quality_score', 'N/A')}")
+                print(f"  Sleep Recovery: {getattr(dto.sleep_scores, 'recovery_score', 'N/A')}")
+                print(f"  Sleep Duration: {getattr(dto.sleep_scores, 'duration_score', 'N/A')}")
+            print(f"  Validation: {getattr(dto, 'validation', 'N/A')}")
+            print(f"  Naps (if any): {getattr(data, 'naps', 'N/A')}")
+            print(f"  Available attributes: {dir(dto)}")
+            
             duration_minutes = int(dto.sleep_time_seconds / 60) if dto.sleep_time_seconds else 0
             session = SleepSession(
                 user_id=user.id,

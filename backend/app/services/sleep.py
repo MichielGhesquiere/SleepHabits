@@ -219,6 +219,38 @@ class SleepService:
 
         return {"correlations": correlations}
 
+    def get_timeline(self, user: User, range_type: str = "week") -> dict:
+        """Get sleep timeline data for visualization."""
+        sessions = self.store.list_sleep_sessions(user.id)
+        
+        # Determine how many days to include
+        if range_type == "year":
+            limit = 365
+        elif range_type == "month":
+            limit = 30
+        else:  # week
+            limit = 7
+        
+        # Take the most recent sessions up to the limit
+        recent_sessions = sessions[:limit]
+        
+        timeline_data = []
+        for session in reversed(recent_sessions):  # Reverse to show oldest first
+            timeline_data.append({
+                "date": session.date.isoformat(),
+                "bedtime": session.bedtime,
+                "wake_time": session.wake_time,
+                "duration_minutes": session.duration_minutes,
+                "sleep_score": session.sleep_score,
+                "stage_minutes": session.stage_minutes,
+            })
+        
+        return {
+            "range": range_type,
+            "timeline": timeline_data,
+            "total_sessions": len(timeline_data),
+        }
+
     @staticmethod
     def _clock_to_minutes(value: str) -> int:
         parts = value.split(":")

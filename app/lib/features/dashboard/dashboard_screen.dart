@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_state.dart';
+import '../connect/garmin_connect_screen.dart';
+import '../connect/garmin_repository.dart';
 import '../habits/habit_model.dart';
 import '../habits/habit_repository.dart';
 import '../sleep/manual_entry_screen.dart';
@@ -355,6 +357,165 @@ class DashboardScreen extends ConsumerWidget {
                   child: Text('Failed to load stats: $error'),
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Garmin Connection Section
+            summaryAsync.when(
+              data: (summary) {
+                final isGarminConnected = summary?.garminConnected ?? false;
+                
+                if (!isGarminConnected) {
+                  // Show "Connect to Garmin" card
+                  return Card(
+                    elevation: 2,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const GarminConnectScreen(),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.fitness_center,
+                                color: Colors.green.shade700,
+                                size: 32,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Connect to Garmin',
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Automatically sync your sleep data',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                } else {
+                  // Show "Sync from Garmin" button
+                  return Card(
+                    elevation: 2,
+                    color: Colors.green.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.check_circle,
+                              color: Colors.green.shade700,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Garmin Connected',
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.green.shade900,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Sleep data syncs automatically',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Colors.green.shade700,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () async {
+                              try {
+                                final repository = ref.read(garminRepositoryProvider);
+                                await repository.pullLatest(authState.token ?? '');
+                                if (context.mounted) {
+                                  ref.invalidate(sleepSummaryProvider);
+                                  ref.invalidate(habitsProvider);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Synced successfully!'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Sync failed: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.sync, size: 18),
+                            label: const Text('Sync'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.green.shade700,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
             ),
             const SizedBox(height: 24),
             habitsAsync.when(
